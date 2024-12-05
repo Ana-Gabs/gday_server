@@ -1,8 +1,8 @@
 // ./gateway/index.js
-require('dotenv').config();
+//require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
-const dotenv = require('dotenv');
+//const dotenv = require('dotenv');
 const { spawn } = require('child_process');
 const cors = require('cors');
 
