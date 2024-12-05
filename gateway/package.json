@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "install": "cd actividades && npm install && cd ../notificaciones && npm install && cd ../gateway && npm install && cd ../reportes && npm install && cd ../suscripciones && npm install && cd ../usuarios && npm install",
     "start": "node index.js",
     "dev": "npx nodemon index.js"
   },
