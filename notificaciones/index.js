@@ -1,9 +1,8 @@
 const cron = require('node-cron');
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { ObjectId } = require('mongodb');
-{/*require('dotenv').config({ path: '../gateway/.env' });*/}
+require('dotenv').config({ path: '../gateway/.env' });
 const { connectToMongo, getDb } = require('./config/db');
 const validarNotificacion = require('./middlewares/validarNotificacion');
 
