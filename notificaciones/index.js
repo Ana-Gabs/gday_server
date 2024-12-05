@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { ObjectId } = require('mongodb');

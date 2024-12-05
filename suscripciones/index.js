@@ -1,4 +1,5 @@
 {/*require('dotenv').config({ path: '../gateway/.env' });*/}
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
