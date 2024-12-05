@@ -4,14 +4,9 @@ const { ObjectId } = require('mongodb');
 const app = express();
 app.use(express.json());
 app.use(cors());
+require('dotenv').config({ path: '../gateway/.env' });
 const { connectToMongo, getDb } = require('./config/db');
 const validarActividad = require('./middlewares/validarActividad');
-
-const dotenv = require('dotenv');
-if (process.env.NODE_ENV !== 'production') {
-    dotenv.config();  
-}
-
 
 // Función para validar ObjectId
 function isValidObjectId(id) {
