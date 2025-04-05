@@ -28,7 +28,7 @@ const actividadSchema = new mongoose.Schema({
   fechaCreacion: Date,
 });
 
-const Actividad = mongoose.model('Actividad', actividadSchema);
+const Actividad = mongoose.model('actividades', actividadSchema);
 
 // Endpoints de los reportes
 
