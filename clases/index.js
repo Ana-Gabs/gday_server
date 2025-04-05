@@ -6,15 +6,18 @@ app.use(express.json());
 app.use(cors());
 require('dotenv').config({ path: '../gateway/.env' });
 const { connectToMongo, getDb } = require('./config/db');
-const { validarClase, isValidObjectId } = require('./middlewares/validacionClases');
+
+const { 
+    validarUsuario, 
+    validarClase, 
+    validarClaseDatos,
+    isValidObjectId 
+} = require('./middlewares/validacionClases');
+
 
 // Obtener todas las clases de un usuario
-app.get('/clases/:usuarioId', async (req, res) => {
+app.get('/clases/:usuarioId', validarUsuario, async (req, res) => {
     const { usuarioId } = req.params;
-    
-    if (!isValidObjectId(usuarioId)) {
-        return res.status(400).json({ message: 'ID de usuario inválido' });
-    }
 
     try {
         const db = getDb();
@@ -22,33 +25,29 @@ app.get('/clases/:usuarioId', async (req, res) => {
             _id: new ObjectId(usuarioId) 
         });
 
-        if (!usuario || !usuario.clases || usuario.clases.length === 0) {
-            return res.status(404).json({ message: 'Usuario no encontrado o sin clases registradas' });
-        }
-
-        res.status(200).json(usuario.clases);
+        res.status(200).json(usuario?.clases || []);
     } catch (error) {
         console.error('Error al obtener clases:', error);
         res.status(500).json({ message: 'Error al obtener las clases' });
     }
 });
 
-// Agregar una nueva clase
-app.post('/clases/agregar', validarClase, async (req, res) => {
+app.post('/clases/agregar', validarUsuario, validarClaseDatos, async (req, res) => {
     const { materia, horario, fechaInicio, fechaFin, usuarioId } = req.body;
 
     try {
         const db = getDb();
         
         const nuevaClase = {
+            _id: new ObjectId(), // Generamos un nuevo ID para la clase
             materia,
             horario,
             fechaInicio: new Date(fechaInicio),
             fechaFin: new Date(fechaFin),
-            creadoEn: new Date()
+            creadoEn: new Date(),
+            actualizadoEn: new Date()
         };
 
-        // Usamos $push para agregar al array de clases
         const result = await db.collection('clases').updateOne(
             { _id: new ObjectId(usuarioId) },
             { 
@@ -71,12 +70,8 @@ app.post('/clases/agregar', validarClase, async (req, res) => {
 });
 
 // Eliminar una clase específica
-app.delete('/clases/eliminar/:usuarioId/:claseId', async (req, res) => {
+app.delete('/clases/eliminar/:usuarioId/:claseId', validarUsuario, validarClase, async (req, res) => {
     const { usuarioId, claseId } = req.params;
-
-    if (!isValidObjectId(usuarioId) || !isValidObjectId(claseId)) {
-        return res.status(400).json({ message: 'ID de usuario o clase inválido' });
-    }
 
     try {
         const db = getDb();
@@ -89,14 +84,10 @@ app.delete('/clases/eliminar/:usuarioId/:claseId', async (req, res) => {
             }
         );
 
-        if (result.modifiedCount > 0) {
-            res.status(200).json({ 
-                message: 'Clase eliminada correctamente',
-                claseId
-            });
-        } else {
-            res.status(404).json({ message: 'Clase no encontrada' });
-        }
+        res.status(200).json({ 
+            message: 'Clase eliminada correctamente',
+            claseId
+        });
     } catch (error) {
         console.error('Error al eliminar clase:', error);
         res.status(500).json({ message: 'Error al eliminar la clase' });
@@ -104,13 +95,9 @@ app.delete('/clases/eliminar/:usuarioId/:claseId', async (req, res) => {
 });
 
 // Actualizar una clase específica
-app.put('/clases/actualizar/:usuarioId/:claseId', validarClase, async (req, res) => {
+app.put('/clases/actualizar/:usuarioId/:claseId', validarUsuario, validarClase, validarClaseDatos, async (req, res) => {
     const { usuarioId, claseId } = req.params;
     const { materia, horario, fechaInicio, fechaFin } = req.body;
-
-    if (!isValidObjectId(usuarioId) || !isValidObjectId(claseId)) {
-        return res.status(400).json({ message: 'ID de usuario o clase inválido' });
-    }
 
     try {
         const db = getDb();
@@ -136,16 +123,12 @@ app.put('/clases/actualizar/:usuarioId/:claseId', validarClase, async (req, res)
             }
         );
 
-        if (result.modifiedCount > 0) {
-            res.status(200).json({ 
-                message: 'Clase actualizada correctamente',
-                claseId,
-                materia,
-                horario
-            });
-        } else {
-            res.status(404).json({ message: 'Clase no encontrada' });
-        }
+        res.status(200).json({ 
+            message: 'Clase actualizada correctamente',
+            claseId,
+            materia,
+            horario
+        });
     } catch (error) {
         console.error('Error al actualizar clase:', error);
         res.status(500).json({ message: 'Error al actualizar la clase' });
@@ -153,7 +136,7 @@ app.put('/clases/actualizar/:usuarioId/:claseId', validarClase, async (req, res)
 });
 
 // Iniciar el servidor
-const PORT = process.env.PORT_CLASES || 3005;
+const PORT = process.env.PORT_CLASES || 3007;
 connectToMongo().then(() => {
     app.listen(PORT, () => {
         console.log('Servicio de Clases corriendo en puerto:', PORT);
