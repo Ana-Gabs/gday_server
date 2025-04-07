@@ -1,127 +1,125 @@
 require('dotenv').config({ path: '../gateway/.env' });
 const express = require('express');
-const mongoose = require('mongoose');
+const { connectToMongo, getDb } = require('./config/db');
 const cors = require('cors');
 const helmet = require('helmet');
+const moment = require('moment');
+const cron = require('node-cron');
+const { ObjectId } = require('mongodb');
 const app = express();
 
-app.use(cors()); 
+
+app.use(cors());
 app.use(express.json());
-app.use(helmet()); 
+app.use(helmet());
 
-// Configuración de conexión a MongoDB
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('Conectado a MongoDB'))
-  .catch((err) => console.error('Error al conectar a MongoDB:', err));
+// Cron para generar reportes semanales (Domingos a las 00:00)
+cron.schedule('16 21 * * 0', async () => {
+  console.log('[CRON] Generando reportes semanales...');
 
-// Definir el esquema y modelo de actividades
-const actividadSchema = new mongoose.Schema({
-  usuarioId: mongoose.Schema.Types.ObjectId,
-  nombreActividad: String,
-  fechaInicio: Date,
-  fechaFin: Date,
-  importancia: String,
-  urgencia: String,
-  cuadrante: String,
-  descripcion: String,
-  estado: String,
-  fechaCreacion: Date,
-});
+  const db = getDb();
 
-const Actividad = mongoose.model('actividades', actividadSchema);
+  // Convierte las fechas a formato ISO como cadena
+  const inicioSemana = moment().startOf('isoWeek').toISOString();  // Lunes en formato ISO
+  const finSemana = moment().endOf('isoWeek').toISOString();      // Domingo en formato ISO
+  const semana = moment().format('YYYY-[W]WW');
 
-// Endpoints de los reportes
+  try {
+    const usuarios = await db.collection('usuarios').find().toArray();
+    console.log(`[CRON] Usuarios encontrados: ${usuarios.length}`);
 
-// Obtener el conteo de actividades entregadas y no entregadas por semana
-app.get('/reportes/conteo-actividades-semanal', async (req, res) => {
-    try {
-      const actividadesPorSemana = await Actividad.aggregate([
+    for (const usuario of usuarios) {
+      console.log(`[CRON] Procesando usuario: ${usuario._id} - ${usuario.nombre || 'Sin nombre'}`);
+
+      console.log("Rango evaluado:", inicioSemana, finSemana);
+
+      // Agregación de actividades filtradas por usuario y rango de fechas
+      const actividadesPorCuadrante = await db.collection('actividades').aggregate([
         {
-          $addFields: {
-            semana: { $isoWeek: { $toDate: "$fechaInicio" } }
-          }
-        },
-        {
-          $group: {
-            _id: "$semana",
-            entregadas: { 
-              $sum: { $cond: [{ $eq: ["$estado", "Terminada"] }, 1, 0] } 
-            },
-            noEntregadas: { 
-              $sum: { $cond: [{ $ne: ["$estado", "Terminada"] }, 1, 0] } 
+          $match: {
+            usuarioId: new ObjectId(usuario._id),
+            fechaFin: {
+              '$gte': inicioSemana,
+              '$lte': finSemana
             }
           }
         },
-        { $sort: { _id: 1 } } // Ordenar por número de semana
-      ]);
-  
-      res.json(actividadesPorSemana);
-    } catch (error) {
-      console.error('Error al obtener el conteo semanal:', error);
-      res.status(500).json({ error: 'Error al agrupar actividades por semana' });
-    }
-  });
-  
-
-// Obtener las semanas disponibles
-app.get('/reportes/semanas-disponibles', async (req, res) => {
-    try {
-      const semanasDisponibles = await Actividad.aggregate([
-        {
-          $addFields: {
-            semana: { $isoWeek: { $toDate: "$fechaInicio" } }
-          }
-        },
         {
           $group: {
-            _id: "$semana"
+            _id: "$cuadrante",  // Agrupar por cuadrante
+            totalActividades: { $sum: 1 }  // Contar el número de actividades por cuadrante
           }
-        },
-        {
-          $sort: { _id: 1 }
-        },
-        {
-          $project: { _id: 0, semana: "$_id" }
         }
-      ]);
-  
-      res.json(semanasDisponibles);
-    } catch (error) {
-      console.error('Error al obtener las semanas disponibles:', error);
-      res.status(500).json({ error: 'Error al obtener las semanas disponibles' });
-    }
-  });  
+      ]).toArray();
 
-// Obtener actividades por estado semanal
-app.get('/reportes/actividades-por-estado-semanal', async (req, res) => {
-    try {
-      const actividadesPorEstadoSemanal = await Actividad.aggregate([
-        {
-          $addFields: {
-            semana: { $isoWeek: { $toDate: "$fechaInicio" } }
-          }
-        },
-        {
-          $group: {
-            _id: { estado: "$estado", semana: "$semana" },
-            total: { $sum: 1 }
-          }
-        },
-        {
-          $sort: { "_id.semana": 1, "_id.estado": 1 }
+      console.log("[CRON] Actividades por cuadrante:", actividadesPorCuadrante);
+
+      // Contar las terminadas
+      const actividades = await db.collection('actividades').find({
+        usuarioId: usuario._id,
+        fechaFin: { $gte: inicioSemana, $lte: finSemana }
+      }).toArray();
+
+      const total = actividades.length;
+      const terminadas = actividades.filter(a => a.estado === 'Terminada').length;
+      const Nocompletadas = total - terminadas;
+      const dificultadProm = actividades.reduce((sum, a) => sum + (a.dificultad || 0), 0) / total;
+      const tiempoTotal = actividades.reduce((sum, a) => {
+        const start = new Date(a.fechaInicio);
+        const end = new Date(a.fechaFin);
+        return sum + ((end - start) / 60000);  // en minutos
+      }, 0);
+
+      // Inicializar cuadrantes
+      const cuadrantes = { I: 0, II: 0, III: 0, IV: 0 };
+
+      // Asignar los resultados de la agregación al contador de cuadrantes
+      actividadesPorCuadrante.forEach(item => {
+        if (cuadrantes[item._id] !== undefined) {
+          cuadrantes[item._id] = item.totalActividades;
         }
-      ]);
-  
-      res.json(actividadesPorEstadoSemanal);
-    } catch (error) {
-      console.error('Error al obtener las actividades por estado y semana:', error);
-      res.status(500).json({ error: 'Error al obtener las actividades por estado y semana' });
+      });
+
+      console.log('[CRON] Cuadrantes:', cuadrantes);
+
+      // Insertar reporte en la colección "reportes"
+      await db.collection('reportes').insertOne({
+        usuarioId: String(usuario._id), // Asegura que el usuarioId es un string
+        semana: String(semana), // Convierte la semana en un string
+        actividadesTotales: String(total), // Convierte el total a string
+        actividadesTerminadas: String(terminadas), // Convierte el número de actividades terminadas a string
+        actividadesNoTerminadas: String(Nocompletadas), // Convierte el número de actividades no terminadas a string
+        promedioDificultad: String(parseFloat(dificultadProm.toFixed(2))), // Convierte el promedio de dificultad a string
+        tiempoTotal: String(Math.round(tiempoTotal)), // Convierte el tiempo total a string
+        cuadrantes: {
+          I: String(cuadrantes.I),
+          II: String(cuadrantes.II),
+          III: String(cuadrantes.III),
+          IV: String(cuadrantes.IV),
+        },
+        fechaCreacion: new Date().toISOString()  // Fecha de creación convertida a formato ISO como cadena
+      });
+
+      console.log(`[CRON] Reporte generado para el usuario ${usuario._id} (${usuario.nombre || 'Sin nombre'}) para la semana ${semana}`);
     }
-  });
-  
+
+    console.log('[CRON] Todos los reportes generados.');
+  } catch (error) {
+    console.error('[CRON] Error generando los reportes:', error);
+  }
+});
 
 // Iniciar el servidor
-const PORT = process.env.PORT_REPORTES || 3005;
-app.listen(PORT, () => {
-  console.log(`Servidor de reportes corriendo en el puerto ${PORT}`);
+const PORT = process.env.PORT_REPORTES || 3005; 
+connectToMongo().then(() => {
+    app.listen(PORT, () => {
+        console.log('Servidor de Actividades corriendo en el puerto:', PORT);
+    });
+}).catch(error => {
+    console.error('No se pudo iniciar el servidor de Actividades:', error);
+});
+
+app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(500).json({ message: 'Hubo un problema en el servidor. Inténtalo más tarde.' });
 });

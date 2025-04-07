@@ -65,7 +65,7 @@ app.get('/actividades/nocompletadas/:usuarioId', async (req, res) => {
         const actividadesNoCompletadas = await db.collection('actividades')
             .find({
                 usuarioId: new ObjectId(usuarioId),
-                estado: { $in: ['Pendiente', 'En proceso'] } // Estados no completados
+                estado: { $in: ['Pendiente', 'Enproceso'] } // Estados no completados
             })
             .sort({ fechaFin: 1 }) // Ordenar por fecha de fin más próxima (ascendente)
             .toArray();
