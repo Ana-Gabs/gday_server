@@ -1,5 +1,5 @@
 {
-  "name": "reportes",
+  "name": "clases",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -11,14 +11,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "chart.js": "^4.4.8",
+    "clases": "file:",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^4.21.1",
-    "helmet": "^8.0.0",
-    "moment": "^2.30.1",
-    "mongoose": "^8.13.2",
-    "node-cron": "^3.0.3",
-    "reportes": "file:"
+    "express": "^4.21.2",
+    "mongodb": "^6.15.0",
+    "nodemon": "^3.1.9"
   }
 }
