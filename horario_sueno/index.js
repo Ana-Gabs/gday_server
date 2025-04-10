@@ -16,7 +16,7 @@ app.use(cors({
 
 app.use(express.json());
 
-const PORT = process.env.PORT_HORARIO_SUENO || 3007; // Usar un puerto diferente
+const PORT = process.env.PORT_HORARIO_SUENO || 3008; // Usar un puerto diferente
 
 // Conexión a MongoDB
 connectToMongo().then(() => {
