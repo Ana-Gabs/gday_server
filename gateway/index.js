@@ -36,6 +36,7 @@ const microservices = [
   { name: 'Reportes', path: '../reportes/index.js' },
   { name: 'Suscripciones', path: '../suscripciones/index.js' },
   { name: 'Horario_Sueno', path: '../horario_sueno/index.js' },
+  { name: 'Horario_Sueno', path: '../horario_sueno/index.js' },
   { name: 'Suscripciones', path: '../clases/index.js' },
 
 ];
@@ -144,11 +145,12 @@ app.use('/actividades', async (req, res) => {
         res.status(error.response?.status || 500).json(error.response?.data || 'Error en el Gateway');
       }
     });
-    
+
 
   app.use('/clases', async (req, res) => {
     try {
       const targetURL = `${process.env.CLASES_SERVICE_URL}${req.originalUrl}`;
+
       console.log(`Reenviando solicitud a: ${targetURL}`);
       const response = await axios({
         method: req.method,
@@ -162,7 +164,6 @@ app.use('/actividades', async (req, res) => {
       res.status(error.response?.status || 500).json(error.response?.data || 'Error en el Gateway');
     }
   });
-
   
 // Puerto del Gateway
 const PORT = process.env.PORT || 3001;
