@@ -35,14 +35,9 @@ const microservices = [
   { name: 'Notificaciones', path: '../notificaciones/index.js' },
   { name: 'Reportes', path: '../reportes/index.js' },
   { name: 'Suscripciones', path: '../suscripciones/index.js' },
-<<<<<<< HEAD
-  { name: 'Clases', path: '../clases/index.js' }
-=======
-  { name: 'Horario_Sueno', path: '../horario_sueno/index.js' },
+  { name: 'Clases', path: '../clases/index.js' },
   { name: 'Horario_Sueno', path: '../horario_sueno/index.js' },
   { name: 'Suscripciones', path: '../clases/index.js' },
-
->>>>>>> b47b9989c6b38067b4cfafec141c20be63e510b3
 ];
 
 microservices.forEach((service) =>
