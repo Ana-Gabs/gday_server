@@ -114,7 +114,7 @@ cron.schedule('21 21 * * 0', async () => {
 });
 
 // Endpoint para obtener datos y generar gráfico de radar (de araña) de la dificultad promedio
-app.get('/grafica/analisis-actividad/:usuarioId', async (req, res) => {
+app.get('/reportes/grafica/analisis-actividad/:usuarioId', async (req, res) => {
   const { usuarioId } = req.params;
   const db = getDb();
 
@@ -155,7 +155,7 @@ app.get('/grafica/analisis-actividad/:usuarioId', async (req, res) => {
   }
 });
 
-app.get('/grafica/cuadrantes-por-semana/:usuarioId', async (req, res) => {
+app.get('/reportes/grafica/cuadrantes-por-semana/:usuarioId', async (req, res) => {
   const { usuarioId } = req.params;
   const db = getDb();
 
@@ -192,7 +192,7 @@ app.get('/grafica/cuadrantes-por-semana/:usuarioId', async (req, res) => {
   }
 });
 
-app.get('/grafica/tiempo-por-semana/:usuarioId', async (req, res) => {
+app.get('/reportes/grafica/tiempo-por-semana/:usuarioId', async (req, res) => {
   const { usuarioId } = req.params;
   const db = getDb();
 
@@ -227,7 +227,7 @@ app.get('/grafica/tiempo-por-semana/:usuarioId', async (req, res) => {
   }
 });
 
-app.get('/grafica/dificultad-por-semana/:usuarioId', async (req, res) => {
+app.get('/reportes/grafica/dificultad-por-semana/:usuarioId', async (req, res) => {
   const { usuarioId } = req.params;
   const db = getDb();
 
