@@ -1,0 +1,59 @@
+api
+get http://localhost:3001/clases/67f0c06ea26ed44f63d61660
+
+post http://localhost:3001/clases/agregar
+{
+    "usuarioId": "67f0c06ea26ed44f63d61660",
+    "materia": "Matemáticas",
+    "horario": {
+      "lunes": "10:00",
+      "miércoles": "14:00"
+    },
+    "fechaInicio": "2023-09-01",
+    "fechaFin": "2023-12-15"
+  }
+
+  respuesta 
+  {
+    "message": "Clase agregada correctamente",
+    "clase": {
+      "_id": "67f0d3289d8a2c5edc05a20c",
+      "materia": "Matemáticas",
+      "horario": {
+        "lunes": "10:00",
+        "miércoles": "14:00"
+      },
+      "fechaInicio": "2023-09-01T00:00:00.000Z",
+      "fechaFin": "2023-12-15T00:00:00.000Z",
+      "creadoEn": "2025-04-05T06:52:24.712Z",
+      "actualizadoEn": "2025-04-05T06:52:24.712Z"
+    },
+    "usuarioId": "67f0c06ea26ed44f63d61660"
+  }
+
+
+put 
+//localhost:3001/clases/actualizar/67f0c06ea26ed44f63d61660/67f0d3289d8a2c5edc05a20c
+
+{
+    "materia": "Matemáticas Avanzadas",
+    "horario": {
+      "lunes": "11:00",
+      "viernes": "15:00"
+    },
+    "fechaInicio": "2023-09-01",
+    "fechaFin": "2023-12-20"
+  }
+
+respuesta
+{
+    "message": "Clase actualizada correctamente",
+    "claseId": "67f0d3289d8a2c5edc05a20c",
+    "materia": "Matemáticas Avanzadas",
+    "horario": {
+      "lunes": "11:00",
+      "viernes": "15:00"
+    }
+  }
+
+  DELETE http://localhost:3001/clases/eliminar/67f0c06ea26ed44f63d61660/67f0d3289d8a2c5edc05a20c

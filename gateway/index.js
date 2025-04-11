@@ -35,7 +35,14 @@ const microservices = [
   { name: 'Notificaciones', path: '../notificaciones/index.js' },
   { name: 'Reportes', path: '../reportes/index.js' },
   { name: 'Suscripciones', path: '../suscripciones/index.js' },
+<<<<<<< HEAD
+  { name: 'Clases', path: '../clases/index.js' }
+=======
+  { name: 'Horario_Sueno', path: '../horario_sueno/index.js' },
+  { name: 'Horario_Sueno', path: '../horario_sueno/index.js' },
   { name: 'Suscripciones', path: '../clases/index.js' },
+
+>>>>>>> b47b9989c6b38067b4cfafec141c20be63e510b3
 ];
 
 microservices.forEach((service) =>
@@ -125,9 +132,29 @@ app.use('/actividades', async (req, res) => {
     }
   });
 
+
+  app.use('/horario_sueno', async (req, res) => {
+      try {
+        const targetURL = `${process.env.HORARIO_SUENO_SERVICE_URL}${req.originalUrl}`;
+        console.log(`Reenviando solicitud a: ${targetURL}`);
+        const response = await axios({
+          method: req.method,
+          url: targetURL,
+          data: req.body,
+          params: req.query,
+        });
+        res.status(response.status).json(response.data);
+      } catch (error) {
+        console.error('Error al reenviar solicitud:', error.message);
+        res.status(error.response?.status || 500).json(error.response?.data || 'Error en el Gateway');
+      }
+    });
+
+
   app.use('/clases', async (req, res) => {
     try {
       const targetURL = `${process.env.CLASES_SERVICE_URL}${req.originalUrl}`;
+
       console.log(`Reenviando solicitud a: ${targetURL}`);
       const response = await axios({
         method: req.method,
@@ -142,6 +169,19 @@ app.use('/actividades', async (req, res) => {
     }
   });
   
+  app.use('/clases', async (req, res) => {
+    try {
+      const response = await axios({
+        method: req.method,
+        url: `${process.env.CLASES_SERVICE_URL}${req.originalUrl}`,
+        data: req.body,
+        params: req.query,
+      });
+      res.status(response.status).json(response.data);
+    } catch (error) {
+      res.status(error.response?.status || 500).json(error.response?.data || 'Error en el Gateway');
+    }
+  });
 // Puerto del Gateway
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
