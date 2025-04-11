@@ -117,17 +117,17 @@ app.post('/login', async (req, res) => {
     for (let i = 0; i < password.length - 1; i++) {
       const currentChar = parseInt(password[i]);
       const nextChar = parseInt(password[i + 1]);
-
+  
       if (!isNaN(currentChar) && !isNaN(nextChar) && nextChar === currentChar + 1) {
         return true;
       }
     }
     return false;
   };
-
+  
 
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
-  const correoRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const correoRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 
 
@@ -149,7 +149,7 @@ app.post('/login', async (req, res) => {
         message: 'La contraseña no debe contener números consecutivos.',
       });
     }
-
+   
 
 
     // Buscar usuario por correo
@@ -164,11 +164,11 @@ app.post('/login', async (req, res) => {
 
 
 
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Contraseña incorrecta' });
-    }
+  if (!isPasswordValid) {
+    return res.status(401).json({ message: 'Contraseña incorrecta' });
+  }
 
-
+  
     // Validar el tipo de usuario
     if (usuario.tipo !== '1') {
       return res.status(403).json({ message: 'Acceso denegado. Tipo de usuario no autorizado.' });
@@ -223,7 +223,7 @@ app.post('/solicitar-recuperacion', async (req, res) => {
       },
     });
 
-    const url = `http://localhost:3000/restablecer/${token}`;
+    const url = `https://microservices.contreras.website/gday/restablecer/${token}`;
     await transporter.sendMail({
       from: 'gdayg123@gmail.com',
       to: correo,
@@ -241,15 +241,13 @@ app.post('/solicitar-recuperacion', async (req, res) => {
 const secretKey = process.env.JWT_SECRET;
 
 app.post('/restablecer', async (req, res) => {
-  console.log('Authorization:', req.headers.authorization); // Esto es para depurar y ver si el token llega correctamente
-  const token = req.headers.authorization?.split(' ')[1]; // Extraemos el token de la cabecera
-
+  const token = req.headers.authorization?.split(' ')[1];
   if (!token) {
     return res.status(400).json({ mensaje: 'Token no proporcionado o inválido.' });
   }
 
   try {
-    const decoded = jwt.verify(token, secretKey); // Verificamos el token
+    const decoded = jwt.verify(token, secretKey);
     if (decoded.type !== 'password-reset') {
       return res.status(400).json({ mensaje: 'Token inválido.' });
     }
@@ -259,7 +257,7 @@ app.post('/restablecer', async (req, res) => {
       return res.status(400).json({ mensaje: 'La contraseña debe tener al menos 8 caracteres.' });
     }
 
-    const hashedPassword = bcrypt.hashSync(nuevaContrasena, 10); // Encriptamos la nueva contraseña
+    const hashedPassword = bcrypt.hashSync(nuevaContrasena, 10);
     const user = await Usuario.findByIdAndUpdate(decoded.userId, { contrasena: hashedPassword });
 
     if (!user) {
@@ -272,6 +270,8 @@ app.post('/restablecer', async (req, res) => {
     res.status(400).json({ mensaje: 'Token inválido o expirado.', error: error.message });
   }
 });
+
+
 
 ///////////////////////////////////Registro////////////////////////
 
@@ -353,7 +353,7 @@ app.post('/register', async (req, res) => {
       from: 'gdayg123@gmail.com',
       to: correo,
       subject: 'Verificación de correo',
-      text: `Haz clic en el siguiente enlace para verificar tu correo: http://localhost:3000/verificar/${verificationToken}`
+      text: `Haz clic en el siguiente enlace para verificar tu correo: https://microservices.contreras.website/gday/verificar/${verificationToken}`
     };
 
     transporter.sendMail(mailOptions, (error, info) => {
@@ -403,6 +403,41 @@ app.get('/verificar/:token', async (req, res) => {
   }
 });
 
+app.post('/confirmar-registro', async (req, res) => {
+  const { token, confirmar } = req.body;  // Recibimos 'confirmar' para saber si el usuario aceptó o no
+
+  try {
+    const usuario = await Usuario.findOne({ verificationToken: token });
+
+    // Si no existe el usuario o el token es incorrecto
+    if (!usuario) {
+      return res.status(404).json({ message: 'Token inválido o usuario no encontrado.' });
+    }
+
+    // Si el usuario ya está verificado, no se debe hacer nada
+    if (usuario.verificado) {
+      return res.status(400).json({ message: 'Este correo ya está verificado.' });
+    }
+
+    // Si el usuario cancela, se elimina el registro del usuario
+    if (confirmar === false) {
+      await Usuario.deleteOne({ verificationToken: token }); // Eliminamos al usuario que no confirmo el registro
+      return res.status(200).json({ message: 'El registro ha sido cancelado, el usuario ha sido eliminado.' });
+    }
+
+    // Si el usuario confirma, se marca como verificado
+    usuario.verificado = true;
+    usuario.verificationToken = null; // Eliminar el token después de la verificación
+    await usuario.save();
+
+    // Responder con mensaje exitoso
+    res.status(200).json({ message: '¡Correo verificado y registro completado exitosamente!' });
+  } catch (err) {
+    console.error('Error al confirmar el registro:', err);
+    res.status(500).json({ message: 'Hubo un problema al confirmar el registro.' });
+  }
+});
+
 app.post('/solicitar-verificacion', async (req, res) => {
   const { correo } = req.body;
   try {
@@ -425,6 +460,7 @@ app.post('/solicitar-verificacion', async (req, res) => {
     res.status(500).json({ mensaje: 'Hubo un error al enviar el correo. Intenta más tarde.' });
   }
 });
+
 
 // Función para generar un token
 function generarToken() {
