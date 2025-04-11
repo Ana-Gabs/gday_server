@@ -6,6 +6,8 @@ const helmet = require('helmet');
 const moment = require('moment');
 const cron = require('node-cron');
 const { ObjectId } = require('mongodb');
+const chartJS = require('chart.js');
+const { createCanvas } = require('canvas');
 const app = express();
 
 
@@ -14,7 +16,7 @@ app.use(express.json());
 app.use(helmet());
 
 // Cron para generar reportes semanales (Domingos a las 00:00)
-cron.schedule('16 21 * * 0', async () => {
+cron.schedule('21 21 * * 0', async () => {
   console.log('[CRON] Generando reportes semanales...');
 
   const db = getDb();
@@ -63,7 +65,9 @@ cron.schedule('16 21 * * 0', async () => {
       const total = actividades.length;
       const terminadas = actividades.filter(a => a.estado === 'Terminada').length;
       const Nocompletadas = total - terminadas;
-      const dificultadProm = actividades.reduce((sum, a) => sum + (a.dificultad || 0), 0) / total;
+      // Calcular el promedio de dificultad, asignar 0 si no hay actividades
+      const dificultadProm = total > 0 ? actividades.reduce((sum, a) => sum + (a.dificultad || 0), 0) / total : 0;
+
       const tiempoTotal = actividades.reduce((sum, a) => {
         const start = new Date(a.fechaInicio);
         const end = new Date(a.fechaFin);
@@ -109,17 +113,178 @@ cron.schedule('16 21 * * 0', async () => {
   }
 });
 
-// Iniciar el servidor
-const PORT = process.env.PORT_REPORTES || 3005; 
-connectToMongo().then(() => {
-    app.listen(PORT, () => {
-        console.log('Servidor de Actividades corriendo en el puerto:', PORT);
+// Endpoint para obtener datos y generar gráfico de radar (de araña) de la dificultad promedio
+app.get('/grafica/analisis-actividad/:usuarioId', async (req, res) => {
+  const { usuarioId } = req.params;
+  const db = getDb();
+
+  try {
+    // Obtener los reportes del usuario
+    const reportes = await db.collection('reportes').find({
+      usuarioId: usuarioId,
+    }).toArray();
+
+    if (reportes.length === 0) {
+      return res.status(404).json({ message: 'No se encontraron reportes para este usuario.' });
+    }
+
+    // Preparar los datos para la gráfica de radar
+    const semanas = reportes.map((reporte) => reporte.semana);
+    const dificultades = reportes.map((reporte) => parseFloat(reporte.promedioDificultad));
+
+    // Calcular la tasa de cambio de la dificultad (dificultad en t+1 - dificultad en t)
+    const tasaCambioDificultad = [];
+    for (let i = 1; i < dificultades.length; i++) {
+      tasaCambioDificultad.push(dificultades[i] - dificultades[i - 1]);
+    }
+
+    // Cálculo de la predicción para la próxima semana basado en la tasa de cambio promedio
+    const tasaPromedio = tasaCambioDificultad.reduce((sum, valor) => sum + valor, 0) / tasaCambioDificultad.length;
+    const prediccionDificultad = dificultades[dificultades.length - 1] + tasaPromedio;
+
+    // Enviar los datos al frontend
+    res.json({
+      semanas,
+      dificultades,
+      tasaCambioDificultad,
+      prediccionDificultad
     });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Hubo un problema al generar la gráfica.' });
+  }
+});
+
+app.get('/grafica/cuadrantes-por-semana/:usuarioId', async (req, res) => {
+  const { usuarioId } = req.params;
+  const db = getDb();
+
+  try {
+    const reportes = await db.collection('reportes').find({
+      usuarioId: usuarioId
+    }).sort({ semana: 1 }).toArray();
+
+    if (reportes.length === 0) {
+      return res.status(404).json({ message: 'No se encontraron reportes para este usuario.' });
+    }
+
+    const semanasUnicas = [];
+    const cuadrantes = { I: [], II: [], III: [], IV: [] };
+
+    for (const reporte of reportes) {
+      if (!semanasUnicas.includes(reporte.semana)) {
+        semanasUnicas.push(reporte.semana);
+        cuadrantes.I.push(parseInt(reporte.cuadrantes.I));
+        cuadrantes.II.push(parseInt(reporte.cuadrantes.II));
+        cuadrantes.III.push(parseInt(reporte.cuadrantes.III));
+        cuadrantes.IV.push(parseInt(reporte.cuadrantes.IV));
+      }
+    }
+
+    res.json({
+      semanas: semanasUnicas,
+      cuadrantes
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error al obtener los datos de cuadrantes por semana.' });
+  }
+});
+
+app.get('/grafica/tiempo-por-semana/:usuarioId', async (req, res) => {
+  const { usuarioId } = req.params;
+  const db = getDb();
+
+  try {
+    const reportes = await db.collection('reportes')
+      .find({ usuarioId: usuarioId })
+      .sort({ semana: 1 })
+      .toArray();
+
+    if (reportes.length === 0) {
+      return res.status(404).json({ message: 'No se encontraron reportes para este usuario.' });
+    }
+
+    const semanasUnicas = [];
+    const tiempos = [];
+
+    for (const reporte of reportes) {
+      if (!semanasUnicas.includes(reporte.semana)) {
+        semanasUnicas.push(reporte.semana);
+        tiempos.push(parseInt(reporte.tiempoTotal)); // tiempo en minutos
+      }
+    }
+
+    res.json({
+      semanas: semanasUnicas,
+      tiempos
+    });
+
+  } catch (error) {
+    console.error('[ERROR] Tiempo por semana:', error);
+    res.status(500).json({ message: 'Error al obtener el tiempo por semana.' });
+  }
+});
+
+app.get('/grafica/dificultad-por-semana/:usuarioId', async (req, res) => {
+  const { usuarioId } = req.params;
+  const db = getDb();
+
+  try {
+    const reportes = await db.collection('reportes')
+      .find({ usuarioId: usuarioId })
+      .sort({ semana: 1 })
+      .toArray();
+
+    if (reportes.length === 0) {
+      return res.status(404).json({ message: 'No se encontraron reportes para este usuario.' });
+    }
+
+    const semanas = [];
+    const dificultades = [];
+
+    // Evita semanas repetidas
+    for (const r of reportes) {
+      if (!semanas.includes(r.semana)) {
+        semanas.push(r.semana);
+        dificultades.push(parseFloat(r.promedioDificultad));
+      }
+    }
+
+    // Calcular derivada discreta (tasa de cambio)
+    const tasaCambio = [];
+    for (let i = 0; i < dificultades.length - 1; i++) {
+      const delta = dificultades[i + 1] - dificultades[i];
+      tasaCambio.push(parseFloat(delta.toFixed(2)));
+    }
+
+    res.json({
+      semanas,
+      dificultades,
+      tasaCambio
+    });
+
+  } catch (error) {
+    console.error('[ERROR] Dificultad por semana:', error);
+    res.status(500).json({ message: 'Error al obtener la dificultad por semana.' });
+  }
+});
+
+
+
+
+// Iniciar el servidor
+const PORT = process.env.PORT_REPORTES || 3005;
+connectToMongo().then(() => {
+  app.listen(PORT, () => {
+    console.log('Servidor de Actividades corriendo en el puerto:', PORT);
+  });
 }).catch(error => {
-    console.error('No se pudo iniciar el servidor de Actividades:', error);
+  console.error('No se pudo iniciar el servidor de Actividades:', error);
 });
 
 app.use((err, req, res, next) => {
-    console.error(err);
-    res.status(500).json({ message: 'Hubo un problema en el servidor. Inténtalo más tarde.' });
+  console.error(err);
+  res.status(500).json({ message: 'Hubo un problema en el servidor. Inténtalo más tarde.' });
 });
